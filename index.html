@@ -1,0 +1,194 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f3b2d">
+<title>Carte Flyers</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<style>
+:root{
+  --bg:#f3f1ea; --panel:#ffffff; --fg:#1d2420; --muted:#66706a;
+  --accent:#e2572b; --green:#1f3b2d; --line:#dcd8cc;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font:15px/1.4 var(--font);color:var(--fg);background:var(--bg);display:flex;flex-direction:column}
+header{background:var(--green);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:12px}
+header h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
+.count{font-variant-numeric:tabular-nums;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:999px;font-size:13px}
+#map{flex:1;min-height:0}
+.bar{display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
+button{font:inherit;border:0;border-radius:10px;padding:12px 14px;cursor:pointer}
+.primary{background:var(--accent);color:#fff;font-weight:600;flex:1}
+.ghost{background:#ecebe4;color:var(--fg)}
+button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
+.sheet{position:fixed;inset:auto 0 0 0;background:var(--panel);border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:16px 16px calc(16px + env(safe-area-inset-bottom));z-index:1000;max-height:75%;overflow:auto}
+.sheet h2{margin:0 0 10px;font-size:16px}
+label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
+input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--fg)}
+textarea{min-height:60px;resize:vertical}
+.row{display:flex;gap:8px;margin-top:14px}
+.row button{flex:1}
+.list-item{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
+.list-item .txt{flex:1;min-width:0}
+.list-item small{color:var(--muted)}
+.dot{width:12px;height:12px;border-radius:50%;margin-top:5px;flex:none}
+.hint{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:8px 14px;border-radius:999px;font-size:13px;z-index:900;pointer-events:none}
+.pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center}
+.pin span{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700}
+.danger{background:#fde4dc;color:#a8321a}
+</style>
+</head>
+<body>
+<header>
+  <h1>Carte Flyers</h1>
+  <span class="count" id="count">0 dépôts</span>
+</header>
+<div id="map"></div>
+<div class="hint" id="hint" hidden>Appuie sur la carte pour placer le dépôt</div>
+<div class="bar">
+  <button class="ghost" id="btnLocate" title="Me localiser">📍</button>
+  <button class="primary" id="btnHere">Flyers déposés ici</button>
+  <button class="ghost" id="btnPick" title="Placer à la main">✋</button>
+  <button class="ghost" id="btnList">Liste</button>
+</div>
+
+<div class="sheet" id="form" hidden>
+  <h2 id="formTitle">Nouveau dépôt</h2>
+  <label for="fPlace">Lieu</label>
+  <input id="fPlace" placeholder="Boulangerie, mairie, boîte aux lettres…">
+  <label for="fQty">Nombre de flyers</label>
+  <input id="fQty" type="number" min="0" inputmode="numeric" placeholder="20">
+  <label for="fStatus">Statut</label>
+  <select id="fStatus">
+    <option value="ok">Déposé</option>
+    <option value="revoir">À réapprovisionner</option>
+    <option value="refus">Refusé</option>
+  </select>
+  <label for="fNote">Note</label>
+  <textarea id="fNote" placeholder="Contact, accord du gérant…"></textarea>
+  <div class="row">
+    <button class="danger" id="fDelete" hidden>Supprimer</button>
+    <button class="ghost" id="fCancel">Annuler</button>
+    <button class="primary" id="fSave">Enregistrer</button>
+  </div>
+</div>
+
+<div class="sheet" id="listSheet" hidden>
+  <h2>Tous les dépôts</h2>
+  <div id="list"></div>
+  <div class="row">
+    <button class="ghost" id="btnExport">Exporter</button>
+    <button class="ghost" id="btnImport">Importer</button>
+    <button class="primary" id="btnCloseList">Fermer</button>
+  </div>
+  <input type="file" id="importFile" accept="application/json" hidden>
+</div>
+
+<script>
+const KEY='flyers-depots-v1';
+const COLORS={ok:'#2e8b57',revoir:'#e2a32b',refus:'#c0392b'};
+const LABELS={ok:'Déposé',revoir:'À réapprovisionner',refus:'Refusé'};
+let depots=[];
+try{depots=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(depots))}catch(e){}};
+
+const map=L.map('map',{zoomControl:false}).setView([46.6,2.4],6);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
+const layer=L.layerGroup().addTo(map);
+let meMarker=null, myPos=null, picking=false, editing=null, pending=null;
+
+function icon(d){
+  return L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,26],
+    html:`<div class="pin" style="background:${COLORS[d.status]}"><span>${d.qty||''}</span></div>`});
+}
+function fmt(t){return new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}
+function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+
+function render(){
+  layer.clearLayers();
+  depots.forEach(d=>{
+    L.marker([d.lat,d.lng],{icon:icon(d)}).addTo(layer).on('click',()=>openForm(d));
+  });
+  const total=depots.reduce((s,d)=>s+(+d.qty||0),0);
+  document.getElementById('count').textContent=`${depots.length} dépôt${depots.length>1?'s':''} · ${total} flyers`;
+}
+
+function openForm(d,latlng){
+  editing=d||null; pending=latlng||null;
+  document.getElementById('formTitle').textContent=d?'Modifier le dépôt':'Nouveau dépôt';
+  fPlace.value=d?.place||''; fQty.value=d?.qty??''; fStatus.value=d?.status||'ok'; fNote.value=d?.note||'';
+  fDelete.hidden=!d;
+  listSheet.hidden=true; form.hidden=false;
+  if(d) map.panTo([d.lat,d.lng]);
+}
+function closeForm(){form.hidden=true;editing=null;pending=null}
+
+fSave.onclick=()=>{
+  const data={place:fPlace.value.trim(),qty:fQty.value,status:fStatus.value,note:fNote.value.trim()};
+  if(editing){Object.assign(editing,data,{updated:Date.now()})}
+  else if(pending){depots.push({id:Date.now(),lat:pending.lat,lng:pending.lng,date:Date.now(),...data})}
+  save();render();closeForm();
+};
+fCancel.onclick=closeForm;
+let delArm=false;
+fDelete.onclick=()=>{
+  if(!delArm){delArm=true;fDelete.textContent='Confirmer ?';setTimeout(()=>{delArm=false;fDelete.textContent='Supprimer'},3000);return}
+  depots=depots.filter(x=>x!==editing);delArm=false;fDelete.textContent='Supprimer';save();render();closeForm();
+};
+
+function locate(cb){
+  if(!navigator.geolocation){alert('Géolocalisation indisponible');return}
+  navigator.geolocation.getCurrentPosition(p=>{
+    myPos=L.latLng(p.coords.latitude,p.coords.longitude);
+    if(meMarker) meMarker.setLatLng(myPos);
+    else meMarker=L.circleMarker(myPos,{radius:8,color:'#fff',weight:3,fillColor:'#2a7de1',fillOpacity:1}).addTo(map);
+    map.setView(myPos,Math.max(map.getZoom(),17));
+    cb&&cb(myPos);
+  },e=>alert('Position introuvable : '+e.message),{enableHighAccuracy:true,timeout:15000});
+}
+btnLocate.onclick=()=>locate();
+btnHere.onclick=()=>locate(pos=>openForm(null,pos));
+btnPick.onclick=()=>{picking=!picking;hint.hidden=!picking};
+map.on('click',e=>{if(!picking)return;picking=false;hint.hidden=true;openForm(null,e.latlng)});
+
+function renderList(){
+  const el=document.getElementById('list');
+  if(!depots.length){el.innerHTML='<p style="color:var(--muted)">Aucun dépôt pour l’instant. Appuie sur « Flyers déposés ici » sur place.</p>';return}
+  el.innerHTML='';
+  [...depots].sort((a,b)=>b.date-a.date).forEach(d=>{
+    const it=document.createElement('div');it.className='list-item';
+    it.innerHTML=`<span class="dot" style="background:${COLORS[d.status]}"></span>
+      <div class="txt"><strong>${esc(d.place)||'Sans nom'}</strong>${d.qty?` · ${esc(d.qty)} flyers`:''}<br>
+      <small>${fmt(d.date)} · ${LABELS[d.status]}${d.note?' · '+esc(d.note):''}</small></div>`;
+    it.onclick=()=>openForm(d);
+    el.appendChild(it);
+  });
+}
+btnList.onclick=()=>{renderList();form.hidden=true;listSheet.hidden=false};
+btnCloseList.onclick=()=>listSheet.hidden=true;
+
+btnExport.onclick=()=>{
+  const blob=new Blob([JSON.stringify(depots,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
+  a.download=`flyers-${new Date().toISOString().slice(0,10)}.json`;a.click();
+};
+btnImport.onclick=()=>importFile.click();
+importFile.onchange=e=>{
+  const f=e.target.files[0];if(!f)return;
+  f.text().then(t=>{
+    try{const arr=JSON.parse(t);const ids=new Set(depots.map(d=>d.id));
+      arr.forEach(d=>{if(!ids.has(d.id))depots.push(d)});save();render();renderList();}
+    catch(err){alert('Fichier invalide')}
+  });
+};
+
+render();
+if(depots.length) map.fitBounds(L.latLngBounds(depots.map(d=>[d.lat,d.lng])).pad(.2));
+else locate();
+</script>
+</body>
+</html>
