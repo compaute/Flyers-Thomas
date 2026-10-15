@@ -2,193 +2,388 @@
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="theme-color" content="#1f3b2d">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
+<meta name="theme-color" content="#16302a">
 <title>Carte Flyers</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
+/* Carte plein écran, une barre d'état en haut, un panneau d'action en bas. Pensé pour une main et en plein soleil. */
 :root{
-  --bg:#f3f1ea; --panel:#ffffff; --fg:#1d2420; --muted:#66706a;
-  --accent:#e2572b; --green:#1f3b2d; --line:#dcd8cc;
-  --font:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --ink:#16302a; --ink-2:#4d5f58; --paper:#ffffff; --paper-2:#eef1ee; --line:#d7ddd9;
+  --accent:#ff5a1f; --accent-ink:#ffffff;
+  --ok:#14a05a; --redo:#e9a400; --no:#d43c2c; --draft:#2563eb;
+  --display:"Barlow Condensed",system-ui,sans-serif;
+  --body:"Barlow",system-ui,-apple-system,Roboto,sans-serif;
+  --r:14px;
 }
-*{box-sizing:border-box}
-html,body{height:100%;margin:0}
-body{font:15px/1.4 var(--font);color:var(--fg);background:var(--bg);display:flex;flex-direction:column}
-header{background:var(--green);color:#fff;padding:calc(10px + env(safe-area-inset-top)) 16px 10px;display:flex;align-items:center;gap:12px}
-header h1{font-size:17px;margin:0;flex:1;letter-spacing:.02em}
-.count{font-variant-numeric:tabular-nums;background:rgba(255,255,255,.15);padding:4px 10px;border-radius:999px;font-size:13px}
-#map{flex:1;min-height:0}
-.bar{display:flex;gap:8px;padding:10px 16px calc(10px + env(safe-area-inset-bottom));background:var(--panel);border-top:1px solid var(--line)}
-button{font:inherit;border:0;border-radius:10px;padding:12px 14px;cursor:pointer}
-.primary{background:var(--accent);color:#fff;font-weight:600;flex:1}
-.ghost{background:#ecebe4;color:var(--fg)}
-button:focus-visible{outline:3px solid var(--accent);outline-offset:2px}
-.sheet{position:fixed;inset:auto 0 0 0;background:var(--panel);border-radius:16px 16px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.18);padding:16px 16px calc(16px + env(safe-area-inset-bottom));z-index:1000;max-height:75%;overflow:auto}
-.sheet h2{margin:0 0 10px;font-size:16px}
-label{display:block;font-size:13px;color:var(--muted);margin:10px 0 4px}
-input,textarea,select{width:100%;font:inherit;padding:10px;border:1px solid var(--line);border-radius:8px;background:#fff;color:var(--fg)}
-textarea{min-height:60px;resize:vertical}
-.row{display:flex;gap:8px;margin-top:14px}
-.row button{flex:1}
-.list-item{padding:10px 0;border-bottom:1px solid var(--line);display:flex;gap:10px;align-items:flex-start}
-.list-item .txt{flex:1;min-width:0}
-.list-item small{color:var(--muted)}
-.dot{width:12px;height:12px;border-radius:50%;margin-top:5px;flex:none}
-.hint{position:absolute;top:70px;left:50%;transform:translateX(-50%);background:var(--fg);color:#fff;padding:8px 14px;border-radius:999px;font-size:13px;z-index:900;pointer-events:none}
-.pin{width:26px;height:26px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:2px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35);display:grid;place-items:center}
-.pin span{transform:rotate(45deg);color:#fff;font-size:11px;font-weight:700}
-.danger{background:#fde4dc;color:#a8321a}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;margin:0;overflow:hidden}
+body{font:16px/1.35 var(--body);color:var(--ink);background:var(--paper-2)}
+#map{position:fixed;inset:0;z-index:0;background:#e8ebe8}
+.leaflet-control-attribution{font-size:10px}
+
+/* Haut */
+.top{position:fixed;top:0;left:0;right:0;z-index:500;padding:calc(10px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));display:flex;gap:8px;align-items:flex-start;pointer-events:none}
+.stats{pointer-events:auto;background:var(--ink);color:#fff;border-radius:var(--r);padding:8px 14px;display:flex;gap:16px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.stat b{display:block;font:700 20px/1 var(--display);font-variant-numeric:tabular-nums}
+.stat span{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
+.spacer{flex:1}
+.fab{pointer-events:auto;width:48px;height:48px;border-radius:50%;border:0;background:var(--paper);color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.2);display:grid;place-items:center;cursor:pointer}
+.fab svg{width:22px;height:22px}
+.fab.on{background:var(--draft);color:#fff}
+
+/* Bandeau d'instruction */
+.banner{position:fixed;left:50%;transform:translateX(-50%);top:calc(78px + env(safe-area-inset-top));z-index:500;background:var(--draft);color:#fff;padding:10px 16px;border-radius:999px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+
+/* Panneau bas */
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:600;background:var(--paper);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.15);padding:10px max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.mode{border:0;border-radius:var(--r);padding:14px 10px;background:var(--paper-2);color:var(--ink);font:600 15px var(--body);display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
+.mode svg{width:28px;height:28px}
+.mode.big{background:var(--accent);color:var(--accent-ink)}
+.links{display:flex;justify-content:space-between;margin-top:10px}
+.link{border:0;background:none;color:var(--ink-2);font:500 14px var(--body);padding:8px 4px;cursor:pointer}
+
+h2{font:700 24px/1.1 var(--display);margin:2px 0 4px;text-wrap:balance}
+.sub{color:var(--ink-2);font-size:14px;margin:0 0 12px}
+.btns{display:flex;gap:8px;margin-top:12px}
+.btn{flex:1;border:0;border-radius:12px;padding:14px 10px;font:600 15px var(--body);cursor:pointer;background:var(--paper-2);color:var(--ink)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.danger{background:#fde6e2;color:var(--no)}
+.btn:disabled{opacity:.4}
+button:focus-visible{outline:3px solid var(--draft);outline-offset:2px}
+
+.field{margin-top:10px}
+.field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin-bottom:6px}
+.field input,.field textarea{width:100%;font:16px var(--body);padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
+.field input:focus,.field textarea:focus{outline:none;border-color:var(--draft)}
+textarea{min-height:56px;resize:none}
+.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.chip{border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:11px 4px;font:600 14px var(--body);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.chip i{width:10px;height:10px;border-radius:50%}
+.chip.sel{border-color:var(--ink);background:var(--ink);color:#fff}
+.stepper{display:flex;align-items:center;gap:8px}
+.stepper button{width:52px;height:48px;border:0;border-radius:12px;background:var(--paper-2);font:700 18px var(--body);color:var(--ink);cursor:pointer}
+.stepper input{text-align:center;font:700 22px var(--display);flex:1}
+
+.list{max-height:46vh;overflow:auto;margin:0 -4px;padding:0 4px}
+.tabs{display:flex;gap:6px;margin-bottom:8px}
+.tab{border:0;border-radius:999px;padding:7px 12px;background:var(--paper-2);font:600 13px var(--body);color:var(--ink);cursor:pointer}
+.tab.sel{background:var(--ink);color:#fff}
+.item{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.item .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;flex:none}
+.item .ic svg{width:20px;height:20px}
+.item .t{flex:1;min-width:0}
+.item .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item small{color:var(--ink-2)}
+.empty{color:var(--ink-2);padding:16px 0}
+
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(200px + env(safe-area-inset-bottom));z-index:900;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);text-align:center}
+
+.pin{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.wp{width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid var(--draft);box-shadow:0 1px 4px rgba(0,0,0,.4);font:700 9px/10px var(--body);color:var(--draft);text-align:center}
+.me{width:18px;height:18px;border-radius:50%;background:#2a7de1;border:3px solid #fff;box-shadow:0 0 0 6px rgba(42,125,225,.25)}
+.guard{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:var(--paper);z-index:2000;text-align:center;line-height:1.5}
+@media (prefers-reduced-motion:no-preference){.dock{transition:transform .2s}}
 </style>
 </head>
 <body>
-<header>
-  <h1>Carte Flyers</h1>
-  <span class="count" id="count">0 dépôts</span>
-</header>
 <div id="map"></div>
-<div class="hint" id="hint" hidden>Appuie sur la carte pour placer le dépôt</div>
-<div class="bar">
-  <button class="ghost" id="btnLocate" title="Me localiser">📍</button>
-  <button class="primary" id="btnHere">Flyers déposés ici</button>
-  <button class="ghost" id="btnPick" title="Placer à la main">✋</button>
-  <button class="ghost" id="btnList">Liste</button>
+
+<div class="top">
+  <div class="stats">
+    <div class="stat"><b id="sKm">0</b><span>km de rues</span></div>
+    <div class="stat"><b id="sPts">0</b><span>points</span></div>
+    <div class="stat"><b id="sFly">0</b><span>flyers</span></div>
+  </div>
+  <div class="spacer"></div>
+  <button class="fab" id="btnLocate" aria-label="Me localiser">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+  </button>
 </div>
 
-<div class="sheet" id="form" hidden>
-  <h2 id="formTitle">Nouveau dépôt</h2>
-  <label for="fPlace">Lieu</label>
-  <input id="fPlace" placeholder="Boulangerie, mairie, boîte aux lettres…">
-  <label for="fQty">Nombre de flyers</label>
-  <input id="fQty" type="number" min="0" inputmode="numeric" placeholder="20">
-  <label for="fStatus">Statut</label>
-  <select id="fStatus">
-    <option value="ok">Déposé</option>
-    <option value="revoir">À réapprovisionner</option>
-    <option value="refus">Refusé</option>
-  </select>
-  <label for="fNote">Note</label>
-  <textarea id="fNote" placeholder="Contact, accord du gérant…"></textarea>
-  <div class="row">
-    <button class="danger" id="fDelete" hidden>Supprimer</button>
-    <button class="ghost" id="fCancel">Annuler</button>
-    <button class="primary" id="fSave">Enregistrer</button>
-  </div>
-</div>
-
-<div class="sheet" id="listSheet" hidden>
-  <h2>Tous les dépôts</h2>
-  <div id="list"></div>
-  <div class="row">
-    <button class="ghost" id="btnExport">Exporter</button>
-    <button class="ghost" id="btnImport">Importer</button>
-    <button class="primary" id="btnCloseList">Fermer</button>
-  </div>
-  <input type="file" id="importFile" accept="application/json" hidden>
-</div>
+<div class="banner" id="banner" hidden></div>
+<div class="toast" id="toast" hidden></div>
+<div class="dock" id="dock"></div>
 
 <script>
-const KEY='flyers-depots-v1';
-const COLORS={ok:'#2e8b57',revoir:'#e2a32b',refus:'#c0392b'};
-const LABELS={ok:'Déposé',revoir:'À réapprovisionner',refus:'Refusé'};
-let depots=[];
-try{depots=JSON.parse(localStorage.getItem(KEY))||[]}catch(e){}
-const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(depots))}catch(e){}};
-
-const map=L.map('map',{zoomControl:false}).setView([46.6,2.4],6);
-L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
-const layer=L.layerGroup().addTo(map);
-let meMarker=null, myPos=null, picking=false, editing=null, pending=null;
-
-function icon(d){
-  return L.divIcon({className:'',iconSize:[26,26],iconAnchor:[13,26],
-    html:`<div class="pin" style="background:${COLORS[d.status]}"><span>${d.qty||''}</span></div>`});
+/* ---------- Garde : HTTPS obligatoire ---------- */
+if(!window.L||!window.isSecureContext){
+  document.body.innerHTML='<div class="guard"><div><h2>Ouvre cette page depuis une adresse https://</h2><p class="sub">Ouvert comme fichier ou dans un aperçu, le navigateur bloque la carte et le GPS. Mets ce fichier sur GitHub Pages puis ouvre le lien github.io dans Chrome.</p></div></div>';
+  throw new Error('contexte non sécurisé');
 }
-function fmt(t){return new Date(t).toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'numeric'})}
-function esc(s){return (s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
 
-function render(){
+/* ---------- Données ---------- */
+const KEY='flyers-depots-v2';
+const ST={ok:{c:'var(--ok)',hex:'#14a05a',l:'Fait'},redo:{c:'var(--redo)',hex:'#e9a400',l:'À refaire'},no:{c:'var(--no)',hex:'#d43c2c',l:'Refusé'}};
+let items=[];
+try{
+  items=JSON.parse(localStorage.getItem(KEY))||[];
+  // reprise des anciens points v1
+  const old=JSON.parse(localStorage.getItem('flyers-depots-v1')||'[]');
+  if(old.length&&!localStorage.getItem(KEY)){
+    items=old.map(o=>({id:o.id,type:'point',lat:o.lat,lng:o.lng,name:o.place,qty:+o.qty||0,status:o.status==='revoir'?'redo':o.status==='refus'?'no':'ok',note:o.note,date:o.date}));
+  }
+}catch(e){}
+const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){toast('Impossible d’enregistrer sur ce téléphone')}};
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtD=t=>new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
+const fmtKm=m=>m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.round(m)+' m';
+
+/* ---------- Icônes ---------- */
+const I={
+  street:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M7 19h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/></svg>',
+  pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>'
+};
+
+/* ---------- Carte ---------- */
+const map=L.map('map',{zoomControl:false,tap:true}).setView([46.6,2.4],6);
+L.tileLayer('https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png',{maxZoom:20,subdomains:'abcd',attribution:'© OpenStreetMap © CARTO'}).addTo(map);
+const layer=L.layerGroup().addTo(map), draftLayer=L.layerGroup().addTo(map);
+let me=null, myPos=null;
+
+function draw(){
   layer.clearLayers();
-  depots.forEach(d=>{
-    L.marker([d.lat,d.lng],{icon:icon(d)}).addTo(layer).on('click',()=>openForm(d));
+  items.forEach(it=>{
+    const col=ST[it.status].hex;
+    if(it.type==='rue'){
+      L.polyline(it.coords,{color:'#fff',weight:11,opacity:.9}).addTo(layer);
+      L.polyline(it.coords,{color:col,weight:7,opacity:.95}).addTo(layer).on('click',e=>{L.DomEvent.stop(e);if(mode)return;showEdit(it)});
+    }else{
+      L.marker([it.lat,it.lng],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,30],html:`<div class="pin" style="background:${col}"></div>`})})
+        .addTo(layer).on('click',e=>{if(mode)return;showEdit(it)});
+    }
   });
-  const total=depots.reduce((s,d)=>s+(+d.qty||0),0);
-  document.getElementById('count').textContent=`${depots.length} dépôt${depots.length>1?'s':''} · ${total} flyers`;
+  const km=items.filter(i=>i.type==='rue').reduce((s,i)=>s+(i.dist||0),0);
+  $('sKm').textContent=(km/1000).toFixed(1).replace('.',',');
+  $('sPts').textContent=items.filter(i=>i.type==='point').length;
+  $('sFly').textContent=items.reduce((s,i)=>s+(+i.qty||0),0);
 }
 
-function openForm(d,latlng){
-  editing=d||null; pending=latlng||null;
-  document.getElementById('formTitle').textContent=d?'Modifier le dépôt':'Nouveau dépôt';
-  fPlace.value=d?.place||''; fQty.value=d?.qty??''; fStatus.value=d?.status||'ok'; fNote.value=d?.note||'';
-  fDelete.hidden=!d;
-  listSheet.hidden=true; form.hidden=false;
-  if(d) map.panTo([d.lat,d.lng]);
-}
-function closeForm(){form.hidden=true;editing=null;pending=null}
+/* ---------- Toast & bannière ---------- */
+let tT;
+function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,2600)}
+function banner(m){$('banner').hidden=!m;if(m)$('banner').textContent=m}
 
-fSave.onclick=()=>{
-  const data={place:fPlace.value.trim(),qty:fQty.value,status:fStatus.value,note:fNote.value.trim()};
-  if(editing){Object.assign(editing,data,{updated:Date.now()})}
-  else if(pending){depots.push({id:Date.now(),lat:pending.lat,lng:pending.lng,date:Date.now(),...data})}
-  save();render();closeForm();
-};
-fCancel.onclick=closeForm;
-let delArm=false;
-fDelete.onclick=()=>{
-  if(!delArm){delArm=true;fDelete.textContent='Confirmer ?';setTimeout(()=>{delArm=false;fDelete.textContent='Supprimer'},3000);return}
-  depots=depots.filter(x=>x!==editing);delArm=false;fDelete.textContent='Supprimer';save();render();closeForm();
-};
-
-function locate(cb){
-  if(!navigator.geolocation){alert('Géolocalisation indisponible');return}
+/* ---------- GPS ---------- */
+function locate(cb,quiet){
+  if(!navigator.geolocation){toast('GPS indisponible');return}
+  $('btnLocate').classList.add('on');
   navigator.geolocation.getCurrentPosition(p=>{
+    $('btnLocate').classList.remove('on');
     myPos=L.latLng(p.coords.latitude,p.coords.longitude);
-    if(meMarker) meMarker.setLatLng(myPos);
-    else meMarker=L.circleMarker(myPos,{radius:8,color:'#fff',weight:3,fillColor:'#2a7de1',fillOpacity:1}).addTo(map);
+    if(me)me.setLatLng(myPos);
+    else me=L.marker(myPos,{interactive:false,icon:L.divIcon({className:'',iconSize:[18,18],html:'<div class="me"></div>'})}).addTo(map);
     map.setView(myPos,Math.max(map.getZoom(),17));
     cb&&cb(myPos);
-  },e=>alert('Position introuvable : '+e.message),{enableHighAccuracy:true,timeout:15000});
+  },e=>{
+    $('btnLocate').classList.remove('on');
+    if(!quiet)toast(e.code===1?'Autorise la localisation dans les réglages du site':'Position introuvable, réessaie dehors');
+  },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
 }
-btnLocate.onclick=()=>locate();
-btnHere.onclick=()=>locate(pos=>openForm(null,pos));
-btnPick.onclick=()=>{picking=!picking;hint.hidden=!picking};
-map.on('click',e=>{if(!picking)return;picking=false;hint.hidden=true;openForm(null,e.latlng)});
+$('btnLocate').onclick=()=>locate();
 
-function renderList(){
-  const el=document.getElementById('list');
-  if(!depots.length){el.innerHTML='<p style="color:var(--muted)">Aucun dépôt pour l’instant. Appuie sur « Flyers déposés ici » sur place.</p>';return}
-  el.innerHTML='';
-  [...depots].sort((a,b)=>b.date-a.date).forEach(d=>{
-    const it=document.createElement('div');it.className='list-item';
-    it.innerHTML=`<span class="dot" style="background:${COLORS[d.status]}"></span>
-      <div class="txt"><strong>${esc(d.place)||'Sans nom'}</strong>${d.qty?` · ${esc(d.qty)} flyers`:''}<br>
-      <small>${fmt(d.date)} · ${LABELS[d.status]}${d.note?' · '+esc(d.note):''}</small></div>`;
-    it.onclick=()=>openForm(d);
-    el.appendChild(it);
-  });
+/* ---------- Panneau bas : écrans ---------- */
+let mode=null; // null | 'rue' | 'point'
+const dock=$('dock');
+
+function showHome(){
+  mode=null;banner(null);draftLayer.clearLayers();
+  dock.innerHTML=`<div class="grab"></div>
+    <div class="modes">
+      <button class="mode big" id="mRue">${I.street}Tracer une rue</button>
+      <button class="mode" id="mPt">${I.pin}Point de dépôt</button>
+    </div>
+    <div class="links">
+      <button class="link" id="lList">Historique (${items.length})</button>
+      <button class="link" id="lData">Sauvegarde</button>
+    </div>`;
+  $('mRue').onclick=startRue;$('mPt').onclick=startPoint;
+  $('lList').onclick=()=>showList('all');$('lData').onclick=showData;
 }
-btnList.onclick=()=>{renderList();form.hidden=true;listSheet.hidden=false};
-btnCloseList.onclick=()=>listSheet.hidden=true;
 
-btnExport.onclick=()=>{
-  const blob=new Blob([JSON.stringify(depots,null,2)],{type:'application/json'});
-  const a=document.createElement('a');a.href=URL.createObjectURL(blob);
-  a.download=`flyers-${new Date().toISOString().slice(0,10)}.json`;a.click();
-};
-btnImport.onclick=()=>importFile.click();
-importFile.onchange=e=>{
-  const f=e.target.files[0];if(!f)return;
-  f.text().then(t=>{
-    try{const arr=JSON.parse(t);const ids=new Set(depots.map(d=>d.id));
-      arr.forEach(d=>{if(!ids.has(d.id))depots.push(d)});save();render();renderList();}
-    catch(err){alert('Fichier invalide')}
-  });
-};
+/* ---------- Mode rue : A → B qui suit les rues ---------- */
+let wps=[], route=null, reqId=0;
+function startRue(){
+  mode='rue';wps=[];route=null;draftLayer.clearLayers();
+  banner('Touche le début de la rue (A)');
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Tracer une rue</h2>
+    <p class="sub" id="rueInfo">Touche A puis B sur la carte. Le tracé suit les rues. Ajoute des points pour prolonger.</p>
+    <div class="btns">
+      <button class="btn" id="rGps">Partir de ma position</button>
+    </div>
+    <div class="btns">
+      <button class="btn" id="rCancel">Annuler</button>
+      <button class="btn" id="rUndo" disabled>Retirer le dernier</button>
+      <button class="btn primary" id="rOk" disabled>Valider</button>
+    </div>`;
+  $('rCancel').onclick=showHome;
+  $('rUndo').onclick=()=>{wps.pop();refreshRue()};
+  $('rOk').onclick=()=>showForm({type:'rue',coords:route.coords,wps:wps.map(p=>[p.lat,p.lng]),dist:route.dist,name:route.name});
+  $('rGps').onclick=()=>locate(p=>{wps.push(p);refreshRue()});
+}
+async function refreshRue(){
+  draftLayer.clearLayers();route=null;
+  wps.forEach((p,i)=>L.marker(p,{interactive:false,icon:L.divIcon({className:'',iconSize:[18,18],html:`<div class="wp">${i===0?'A':i===wps.length-1?'B':''}</div>`})}).addTo(draftLayer));
+  $('rUndo').disabled=!wps.length;$('rOk').disabled=true;
+  if(wps.length===0){banner('Touche le début de la rue (A)');$('rueInfo').textContent='Touche A puis B sur la carte. Le tracé suit les rues.';return}
+  if(wps.length===1){banner('Touche la fin de la rue (B)');$('rueInfo').textContent='Point A placé.';return}
+  banner('Calcul du tracé…');
+  const id=++reqId;
+  const r=await getRoute(wps);
+  if(id!==reqId||mode!=='rue')return;
+  route=r;
+  L.polyline(r.coords,{color:'#fff',weight:12,opacity:.9}).addTo(draftLayer);
+  L.polyline(r.coords,{color:'#2563eb',weight:8}).addTo(draftLayer);
+  $('rueInfo').innerHTML=`<b>${esc(r.name||'Rue sans nom')}</b> · ${fmtKm(r.dist)}${r.fallback?' · tracé en ligne droite (réseau indisponible)':''}`;
+  $('rOk').disabled=false;
+  banner('Touche encore pour prolonger, ou Valider');
+}
+async function getRoute(pts){
+  const q=pts.map(p=>p.lng.toFixed(6)+','+p.lat.toFixed(6)).join(';');
+  try{
+    const res=await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${q}?overview=full&geometries=geojson&steps=true`);
+    const j=await res.json();
+    if(j.code!=='Ok')throw 0;
+    const rt=j.routes[0];
+    const names=[];
+    rt.legs.forEach(l=>l.steps.forEach(s=>{if(s.name&&s.distance>15&&!names.includes(s.name))names.push(s.name)}));
+    return {coords:rt.geometry.coordinates.map(c=>[c[1],c[0]]),dist:rt.distance,name:names.slice(0,3).join(' → ')};
+  }catch(e){
+    let d=0;for(let i=1;i<pts.length;i++)d+=pts[i-1].distanceTo(pts[i]);
+    return {coords:pts.map(p=>[p.lat,p.lng]),dist:d,name:'',fallback:true};
+  }
+}
 
-render();
-if(depots.length) map.fitBounds(L.latLngBounds(depots.map(d=>[d.lat,d.lng])).pad(.2));
-else locate();
+/* ---------- Mode point ---------- */
+function startPoint(){
+  mode='point';banner('Touche l’emplacement sur la carte');
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Point de dépôt</h2>
+    <p class="sub">Commerce, mairie, panneau… Touche la carte ou utilise ta position.</p>
+    <div class="btns"><button class="btn" id="pCancel">Annuler</button><button class="btn primary" id="pGps">Ma position</button></div>`;
+  $('pCancel').onclick=showHome;
+  $('pGps').onclick=()=>locate(p=>placePoint(p));
+}
+async function placePoint(p){
+  draftLayer.clearLayers();
+  L.marker(p,{interactive:false,icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,30],html:'<div class="pin" style="background:#2563eb"></div>'})}).addTo(draftLayer);
+  banner(null);
+  showForm({type:'point',lat:p.lat,lng:p.lng,name:''});
+  try{
+    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${p.lat}&lon=${p.lng}`,{headers:{'Accept-Language':'fr'}});
+    const j=await r.json();const a=j.address||{};
+    const n=[j.name&&j.name!==a.road?j.name:'',[a.house_number,a.road].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+    const f=$('fName');if(f&&!f.value)f.value=n;
+  }catch(e){}
+}
+
+map.on('click',e=>{
+  if(mode==='rue'){wps.push(e.latlng);refreshRue()}
+  else if(mode==='point'){mode='pointForm';placePoint(e.latlng)}
+});
+
+/* ---------- Formulaire ---------- */
+function showForm(it,existing){
+  mode=existing?null:'form';banner(null);
+  const st=it.status||'ok';
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>${existing?'Modifier':'Enregistrer'} ${it.type==='rue'?'la rue':'le point'}</h2>
+    ${it.type==='rue'?`<p class="sub">${fmtKm(it.dist||0)}${existing?' · '+fmtD(it.date):''}</p>`:existing?`<p class="sub">${fmtD(it.date)}</p>`:''}
+    <div class="field"><label for="fName">${it.type==='rue'?'Rue':'Lieu'}</label><input id="fName" value="${esc(it.name)}" placeholder="${it.type==='rue'?'Rue de la République':'Boulangerie Dupont'}"></div>
+    <div class="field"><label>Statut</label><div class="chips" id="fSt">
+      ${Object.entries(ST).map(([k,v])=>`<button class="chip${k===st?' sel':''}" data-k="${k}"><i style="background:${v.c}"></i>${v.l}</button>`).join('')}
+    </div></div>
+    <div class="field"><label for="fQty">Flyers</label><div class="stepper">
+      <button id="qm">−10</button><input id="fQty" type="number" inputmode="numeric" min="0" value="${it.qty??(it.type==='rue'?0:10)}"><button id="qp">+10</button>
+    </div></div>
+    <div class="field"><label for="fNote">Note</label><textarea id="fNote" placeholder="Numéros pairs seulement, digicode…">${esc(it.note)}</textarea></div>
+    <div class="btns">
+      ${existing?'<button class="btn danger" id="fDel">Supprimer</button>':''}
+      <button class="btn" id="fCancel">${existing?'Fermer':'Annuler'}</button>
+      <button class="btn primary" id="fSave">Enregistrer</button>
+    </div>`;
+  let status=st;
+  $('fSt').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;status=b.dataset.k;[...$('fSt').children].forEach(c=>c.classList.toggle('sel',c===b))};
+  const q=$('fQty');
+  $('qm').onclick=()=>q.value=Math.max(0,(+q.value||0)-10);
+  $('qp').onclick=()=>q.value=(+q.value||0)+10;
+  $('fCancel').onclick=showHome;
+  $('fSave').onclick=()=>{
+    const data={name:$('fName').value.trim(),qty:+q.value||0,status,note:$('fNote').value.trim()};
+    if(existing)Object.assign(existing,data,{updated:Date.now()});
+    else items.push({...it,...data,id:Date.now(),date:Date.now()});
+    save();draw();showHome();toast(existing?'Modifié':it.type==='rue'?'Rue enregistrée':'Point enregistré');
+  };
+  if(existing){
+    let arm=false;
+    $('fDel').onclick=()=>{
+      if(!arm){arm=true;$('fDel').textContent='Confirmer';setTimeout(()=>{arm=false;const b=$('fDel');if(b)b.textContent='Supprimer'},3000);return}
+      items=items.filter(x=>x!==existing);save();draw();showHome();toast('Supprimé');
+    };
+  }
+}
+function showEdit(it){
+  if(it.type==='rue')map.fitBounds(L.latLngBounds(it.coords).pad(.3),{paddingBottomRight:[0,260]});
+  else map.panTo([it.lat,it.lng]);
+  showForm(it,it);
+}
+
+/* ---------- Historique ---------- */
+function showList(filter){
+  mode=null;banner(null);draftLayer.clearLayers();
+  const list=[...items].filter(i=>filter==='all'||i.type===filter||i.status===filter).sort((a,b)=>b.date-a.date);
+  const tabs=[['all','Tout'],['rue','Rues'],['point','Points'],['redo','À refaire']];
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Historique</h2>
+    <div class="tabs">${tabs.map(([k,l])=>`<button class="tab${k===filter?' sel':''}" data-k="${k}">${l}</button>`).join('')}</div>
+    <div class="list" id="lst">${list.length?list.map(i=>`
+      <div class="item" data-id="${i.id}">
+        <div class="ic" style="background:${ST[i.status].c}">${i.type==='rue'?I.street:I.pin}</div>
+        <div class="t"><b>${esc(i.name)||(i.type==='rue'?'Rue sans nom':'Point sans nom')}</b>
+        <small>${fmtD(i.date)} · ${ST[i.status].l}${i.type==='rue'?' · '+fmtKm(i.dist||0):''}${i.qty?' · '+i.qty+' flyers':''}</small></div>
+      </div>`).join(''):'<p class="empty">Rien ici pour l’instant.</p>'}</div>
+    <div class="btns"><button class="btn" id="lBack">Retour à la carte</button></div>`;
+  dock.querySelector('.tabs').onclick=e=>{const b=e.target.closest('.tab');if(b)showList(b.dataset.k)};
+  $('lst').onclick=e=>{const r=e.target.closest('.item');if(!r)return;const it=items.find(x=>String(x.id)===r.dataset.id);if(it)showEdit(it)};
+  $('lBack').onclick=showHome;
+}
+
+/* ---------- Sauvegarde ---------- */
+function showData(){
+  mode=null;
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Sauvegarde</h2>
+    <p class="sub">Les données restent dans ce navigateur. Exporte un fichier de temps en temps pour ne rien perdre, ou pour passer sur un autre téléphone.</p>
+    <div class="btns"><button class="btn" id="dExp">Exporter</button><button class="btn" id="dImp">Importer</button></div>
+    <div class="btns"><button class="btn primary" id="dBack">Retour</button></div>
+    <input type="file" id="dFile" accept="application/json,.json" hidden>`;
+  $('dBack').onclick=showHome;
+  $('dExp').onclick=()=>{
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(new Blob([JSON.stringify(items)],{type:'application/json'}));
+    a.download=`flyers-${new Date().toISOString().slice(0,10)}.json`;a.click();toast('Fichier exporté');
+  };
+  $('dImp').onclick=()=>$('dFile').click();
+  $('dFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{
+    try{const arr=JSON.parse(t);const ids=new Set(items.map(i=>i.id));let n=0;
+      arr.forEach(i=>{if(!ids.has(i.id)&&(i.type==='rue'||i.type==='point')){items.push(i);n++}});
+      save();draw();toast(n+' éléments importés');showHome();}
+    catch(err){toast('Fichier illisible')}
+  })};
+}
+
+/* ---------- Démarrage ---------- */
+draw();showHome();
+const all=items.flatMap(i=>i.type==='rue'?i.coords:[[i.lat,i.lng]]);
+if(all.length){map.fitBounds(L.latLngBounds(all).pad(.2));locate(null,true)}
+else locate(null,true);
 </script>
 </body>
 </html>
