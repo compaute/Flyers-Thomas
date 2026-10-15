@@ -5,16 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1">
 <meta name="theme-color" content="#16302a">
 <title>Carte Flyers</title>
-<link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700&family=Barlow:wght@400;500;600&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <style>
-/* Carte plein écran, une barre d'état en haut, un panneau d'action en bas. Pensé pour une main et en plein soleil. */
+/* Carte plein écran, stats en haut, panneau d'action au pouce en bas. Contrastes forts pour le plein soleil. */
 :root{
   --ink:#16302a; --ink-2:#4d5f58; --paper:#ffffff; --paper-2:#eef1ee; --line:#d7ddd9;
   --accent:#ff5a1f; --accent-ink:#ffffff;
-  --ok:#14a05a; --redo:#e9a400; --no:#d43c2c; --draft:#2563eb;
+  --ok:#14a05a; --redo:#e9a400; --no:#d43c2c; --draft:#2563eb; --rec:#d4213d;
   --display:"Barlow Condensed",system-ui,sans-serif;
   --body:"Barlow",system-ui,-apple-system,Roboto,sans-serif;
   --r:14px;
@@ -25,44 +24,47 @@ body{font:16px/1.35 var(--body);color:var(--ink);background:var(--paper-2)}
 #map{position:fixed;inset:0;z-index:0;background:#e8ebe8}
 .leaflet-control-attribution{font-size:10px}
 
-/* Haut */
 .top{position:fixed;top:0;left:0;right:0;z-index:500;padding:calc(10px + env(safe-area-inset-top)) max(12px,env(safe-area-inset-right)) 0 max(12px,env(safe-area-inset-left));display:flex;gap:8px;align-items:flex-start;pointer-events:none}
-.stats{pointer-events:auto;background:var(--ink);color:#fff;border-radius:var(--r);padding:8px 14px;display:flex;gap:16px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
+.stats{pointer-events:auto;background:var(--ink);color:#fff;border-radius:var(--r);padding:8px 14px;display:flex;gap:14px;box-shadow:0 4px 14px rgba(0,0,0,.2)}
 .stat b{display:block;font:700 20px/1 var(--display);font-variant-numeric:tabular-nums}
-.stat span{font-size:11px;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
+.stat span{font-size:10px;opacity:.75;text-transform:uppercase;letter-spacing:.06em}
 .spacer{flex:1}
-.fab{pointer-events:auto;width:48px;height:48px;border-radius:50%;border:0;background:var(--paper);color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.2);display:grid;place-items:center;cursor:pointer}
+.fabs{display:flex;flex-direction:column;gap:8px}
+.fab{pointer-events:auto;width:46px;height:46px;border-radius:50%;border:0;background:var(--paper);color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.2);display:grid;place-items:center;cursor:pointer}
 .fab svg{width:22px;height:22px}
 .fab.on{background:var(--draft);color:#fff}
 
-/* Bandeau d'instruction */
-.banner{position:fixed;left:50%;transform:translateX(-50%);top:calc(78px + env(safe-area-inset-top));z-index:500;background:var(--draft);color:#fff;padding:10px 16px;border-radius:999px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap;max-width:calc(100% - 24px);overflow:hidden;text-overflow:ellipsis}
+.banner{position:fixed;left:50%;transform:translateX(-50%);top:calc(74px + env(safe-area-inset-top));z-index:500;background:var(--draft);color:#fff;padding:10px 16px;border-radius:999px;font-weight:600;box-shadow:0 4px 14px rgba(0,0,0,.25);white-space:nowrap;max-width:calc(100% - 130px);overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.banner.rec{background:var(--rec)}
+.banner.rec::before{content:"";display:inline-block;width:9px;height:9px;border-radius:50%;background:#fff;margin-right:8px;vertical-align:1px;animation:blink 1s infinite}
+@keyframes blink{50%{opacity:.2}}
 
-/* Panneau bas */
-.dock{position:fixed;left:0;right:0;bottom:0;z-index:600;background:var(--paper);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.15);padding:10px max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left))}
+.dock{position:fixed;left:0;right:0;bottom:0;z-index:600;background:var(--paper);border-radius:20px 20px 0 0;box-shadow:0 -6px 24px rgba(0,0,0,.15);padding:10px max(14px,env(safe-area-inset-right)) calc(14px + env(safe-area-inset-bottom)) max(14px,env(safe-area-inset-left));max-height:78%;overflow:auto}
 .grab{width:40px;height:4px;border-radius:2px;background:var(--line);margin:0 auto 10px}
-.modes{display:grid;grid-template-columns:1fr 1fr;gap:10px}
-.mode{border:0;border-radius:var(--r);padding:14px 10px;background:var(--paper-2);color:var(--ink);font:600 15px var(--body);display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer}
-.mode svg{width:28px;height:28px}
+.modes{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.mode{border:0;border-radius:var(--r);padding:12px 8px;background:var(--paper-2);color:var(--ink);font:600 15px var(--body);display:flex;align-items:center;gap:10px;cursor:pointer;text-align:left}
+.mode svg{width:26px;height:26px;flex:none}
+.mode small{display:block;font-weight:400;font-size:12px;color:var(--ink-2)}
 .mode.big{background:var(--accent);color:var(--accent-ink)}
-.links{display:flex;justify-content:space-between;margin-top:10px}
+.mode.big small{color:rgba(255,255,255,.85)}
+.links{display:flex;justify-content:space-between;margin-top:8px}
 .link{border:0;background:none;color:var(--ink-2);font:500 14px var(--body);padding:8px 4px;cursor:pointer}
 
 h2{font:700 24px/1.1 var(--display);margin:2px 0 4px;text-wrap:balance}
-.sub{color:var(--ink-2);font-size:14px;margin:0 0 12px}
-.btns{display:flex;gap:8px;margin-top:12px}
+.sub{color:var(--ink-2);font-size:14px;margin:0 0 10px}
+.btns{display:flex;gap:8px;margin-top:10px}
 .btn{flex:1;border:0;border-radius:12px;padding:14px 10px;font:600 15px var(--body);cursor:pointer;background:var(--paper-2);color:var(--ink)}
 .btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.rec{background:var(--rec);color:#fff}
 .btn.danger{background:#fde6e2;color:var(--no)}
 .btn:disabled{opacity:.4}
-button:focus-visible{outline:3px solid var(--draft);outline-offset:2px}
+button:focus-visible,input:focus-visible{outline:3px solid var(--draft);outline-offset:2px}
 
 .field{margin-top:10px}
 .field label{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.06em;color:var(--ink-2);margin-bottom:6px}
-.field input,.field textarea{width:100%;font:16px var(--body);padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
-.field input:focus,.field textarea:focus{outline:none;border-color:var(--draft)}
-textarea{min-height:56px;resize:none}
-.chips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.field input,.field textarea,.search input{width:100%;font:16px var(--body);padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--paper);color:var(--ink)}
+textarea{min-height:52px;resize:none}
+.chips{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:8px}
 .chip{border:1.5px solid var(--line);background:var(--paper);border-radius:12px;padding:11px 4px;font:600 14px var(--body);color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .chip i{width:10px;height:10px;border-radius:50%}
 .chip.sel{border-color:var(--ink);background:var(--ink);color:#fff}
@@ -70,25 +72,30 @@ textarea{min-height:56px;resize:none}
 .stepper button{width:52px;height:48px;border:0;border-radius:12px;background:var(--paper-2);font:700 18px var(--body);color:var(--ink);cursor:pointer}
 .stepper input{text-align:center;font:700 22px var(--display);flex:1}
 
-.list{max-height:46vh;overflow:auto;margin:0 -4px;padding:0 4px}
-.tabs{display:flex;gap:6px;margin-bottom:8px}
-.tab{border:0;border-radius:999px;padding:7px 12px;background:var(--paper-2);font:600 13px var(--body);color:var(--ink);cursor:pointer}
+.selList{display:flex;flex-wrap:wrap;gap:6px;margin:4px 0 2px}
+.tag{background:var(--paper-2);border-radius:999px;padding:6px 10px;font-size:13px;font-weight:600;display:flex;gap:6px;align-items:center}
+.tag button{border:0;background:none;padding:0 2px;font:700 15px var(--body);color:var(--ink-2);cursor:pointer}
+
+.list{max-height:44vh;overflow:auto}
+.tabs{display:flex;gap:6px;margin-bottom:6px;overflow-x:auto}
+.tab{border:0;border-radius:999px;padding:7px 12px;background:var(--paper-2);font:600 13px var(--body);color:var(--ink);cursor:pointer;white-space:nowrap}
 .tab.sel{background:var(--ink);color:#fff}
-.item{display:flex;gap:12px;align-items:center;padding:12px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.item{display:flex;gap:12px;align-items:center;padding:11px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .item .ic{width:36px;height:36px;border-radius:10px;display:grid;place-items:center;color:#fff;flex:none}
 .item .ic svg{width:20px;height:20px}
 .item .t{flex:1;min-width:0}
 .item .t b{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .item small{color:var(--ink-2)}
-.empty{color:var(--ink-2);padding:16px 0}
+.empty{color:var(--ink-2);padding:14px 0}
 
-.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(200px + env(safe-area-inset-bottom));z-index:900;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);text-align:center}
-
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(230px + env(safe-area-inset-bottom));z-index:900;background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:14px;max-width:calc(100% - 32px);text-align:center}
 .pin{width:28px;height:28px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,.35)}
-.wp{width:18px;height:18px;border-radius:50%;background:#fff;border:4px solid var(--draft);box-shadow:0 1px 4px rgba(0,0,0,.4);font:700 9px/10px var(--body);color:var(--draft);text-align:center}
+.wp{width:20px;height:20px;border-radius:50%;background:#fff;border:4px solid var(--draft);box-shadow:0 1px 4px rgba(0,0,0,.4);font:700 10px/12px var(--body);color:var(--draft);text-align:center}
 .me{width:18px;height:18px;border-radius:50%;background:#2a7de1;border:3px solid #fff;box-shadow:0 0 0 6px rgba(42,125,225,.25)}
 .guard{position:fixed;inset:0;display:grid;place-items:center;padding:24px;background:var(--paper);z-index:2000;text-align:center;line-height:1.5}
-@media (prefers-reduced-motion:no-preference){.dock{transition:transform .2s}}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp 0.8s linear infinite;vertical-align:-2px;margin-right:6px}
+@keyframes sp{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.spin,.banner.rec::before{animation:none}}
 </style>
 </head>
 <body>
@@ -96,14 +103,20 @@ textarea{min-height:56px;resize:none}
 
 <div class="top">
   <div class="stats">
-    <div class="stat"><b id="sKm">0</b><span>km de rues</span></div>
+    <div class="stat"><b id="sRues">0</b><span>rues</span></div>
+    <div class="stat"><b id="sKm">0</b><span>km</span></div>
     <div class="stat"><b id="sPts">0</b><span>points</span></div>
     <div class="stat"><b id="sFly">0</b><span>flyers</span></div>
   </div>
   <div class="spacer"></div>
-  <button class="fab" id="btnLocate" aria-label="Me localiser">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
-  </button>
+  <div class="fabs">
+    <button class="fab" id="btnLocate" aria-label="Centrer sur ma position">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+    </button>
+    <button class="fab" id="btnSearch" aria-label="Chercher une adresse">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><circle cx="11" cy="11" r="6.5"/><path d="M16 16l5 5"/></svg>
+    </button>
+  </div>
 </div>
 
 <div class="banner" id="banner" hidden></div>
@@ -111,148 +124,223 @@ textarea{min-height:56px;resize:none}
 <div class="dock" id="dock"></div>
 
 <script>
-/* ---------- Garde : HTTPS obligatoire ---------- */
 if(!window.L||!window.isSecureContext){
   document.body.innerHTML='<div class="guard"><div><h2>Ouvre cette page depuis une adresse https://</h2><p class="sub">Ouvert comme fichier ou dans un aperçu, le navigateur bloque la carte et le GPS. Mets ce fichier sur GitHub Pages puis ouvre le lien github.io dans Chrome.</p></div></div>';
   throw new Error('contexte non sécurisé');
 }
 
-/* ---------- Données ---------- */
+/* ================= Données ================= */
 const KEY='flyers-depots-v2';
-const ST={ok:{c:'var(--ok)',hex:'#14a05a',l:'Fait'},redo:{c:'var(--redo)',hex:'#e9a400',l:'À refaire'},no:{c:'var(--no)',hex:'#d43c2c',l:'Refusé'}};
+const ST={ok:{c:'var(--ok)',hex:'#14a05a',l:'Fait'},redo:{c:'var(--redo)',hex:'#e9a400',l:'À refaire'}};
+const SIDES={both:'Les deux côtés',even:'Pairs',odd:'Impairs'};
 let items=[];
 try{
   items=JSON.parse(localStorage.getItem(KEY))||[];
-  // reprise des anciens points v1
   const old=JSON.parse(localStorage.getItem('flyers-depots-v1')||'[]');
   if(old.length&&!localStorage.getItem(KEY)){
     items=old.map(o=>({id:o.id,type:'point',lat:o.lat,lng:o.lng,name:o.place,qty:+o.qty||0,status:o.status==='revoir'?'redo':o.status==='refus'?'no':'ok',note:o.note,date:o.date}));
   }
 }catch(e){}
+items.forEach(i=>{if(!ST[i.status])i.status='redo'});
 const save=()=>{try{localStorage.setItem(KEY,JSON.stringify(items))}catch(e){toast('Impossible d’enregistrer sur ce téléphone')}};
 const $=id=>document.getElementById(id);
 const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
 const fmtD=t=>new Date(t).toLocaleDateString('fr-FR',{day:'numeric',month:'short'});
 const fmtKm=m=>m>=1000?(m/1000).toFixed(1).replace('.',',')+' km':Math.round(m)+' m';
+const flat=c=>Array.isArray(c[0][0])?c.flat():c;           // coords simples ou multi-lignes
+const lenOf=c=>{const parts=Array.isArray(c[0][0])?c:[c];let d=0;parts.forEach(p=>{for(let i=1;i<p.length;i++)d+=L.latLng(p[i-1]).distanceTo(p[i])});return d};
 
-/* ---------- Icônes ---------- */
 const I={
+  whole:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 20L21 4"/><path d="M8 20l2-2M14 14l2-2M20 8l1-1" stroke-width="1.6"/><circle cx="12" cy="12" r="3" fill="currentColor" stroke="none"/></svg>',
   street:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="5" cy="19" r="2"/><circle cx="19" cy="5" r="2"/><path d="M7 19h6a3 3 0 0 0 0-6h-2a3 3 0 0 1 0-6h6"/></svg>',
+  walk:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13" cy="4" r="2"/><path d="M10 21l2-6 3 3v3M9 12l2-4 4 2 2 3M11 8l-3 3"/></svg>',
   pin:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22s7-6.2 7-12a7 7 0 1 0-14 0c0 5.8 7 12 7 12z"/><circle cx="12" cy="10" r="2.5"/></svg>'
 };
 
-/* ---------- Carte ---------- */
-const map=L.map('map',{zoomControl:false,tap:true}).setView([46.6,2.4],6);
+/* ================= Carte ================= */
+const map=L.map('map',{zoomControl:false}).setView([46.6,2.4],6);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'© OpenStreetMap'}).addTo(map);
 const layer=L.layerGroup().addTo(map), draftLayer=L.layerGroup().addTo(map);
-let me=null, myPos=null;
 
 function draw(){
   layer.clearLayers();
   items.forEach(it=>{
     const col=ST[it.status].hex;
     if(it.type==='rue'){
-      L.polyline(it.coords,{color:'#fff',weight:11,opacity:.9}).addTo(layer);
-      L.polyline(it.coords,{color:col,weight:7,opacity:.95}).addTo(layer).on('click',e=>{L.DomEvent.stop(e);if(mode)return;showEdit(it)});
+      L.polyline(it.coords,{color:'#fff',weight:12,opacity:.9,interactive:false}).addTo(layer);
+      L.polyline(it.coords,{color:col,weight:7,opacity:.95,dashArray:it.side&&it.side!=='both'?'10 7':null}).addTo(layer)
+        .on('click',e=>{L.DomEvent.stop(e);if(mode)return;showEdit(it)});
     }else{
       L.marker([it.lat,it.lng],{icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,30],html:`<div class="pin" style="background:${col}"></div>`})})
-        .addTo(layer).on('click',e=>{if(mode)return;showEdit(it)});
+        .addTo(layer).on('click',()=>{if(mode)return;showEdit(it)});
     }
   });
-  const km=items.filter(i=>i.type==='rue').reduce((s,i)=>s+(i.dist||0),0);
-  $('sKm').textContent=(km/1000).toFixed(1).replace('.',',');
-  $('sPts').textContent=items.filter(i=>i.type==='point').length;
+  const rues=items.filter(i=>i.type==='rue');
+  $('sRues').textContent=rues.length;
+  $('sKm').textContent=(rues.reduce((s,i)=>s+(i.dist||0),0)/1000).toFixed(1).replace('.',',');
+  $('sPts').textContent=items.length-rues.length;
   $('sFly').textContent=items.reduce((s,i)=>s+(+i.qty||0),0);
 }
 
-/* ---------- Toast & bannière ---------- */
 let tT;
 function toast(m){const t=$('toast');t.textContent=m;t.hidden=false;clearTimeout(tT);tT=setTimeout(()=>t.hidden=true,2600)}
-function banner(m){$('banner').hidden=!m;if(m)$('banner').textContent=m}
+function banner(m,cls){const b=$('banner');b.hidden=!m;b.className='banner'+(cls?' '+cls:'');if(m)b.innerHTML=m}
 
-/* ---------- GPS ---------- */
-function locate(cb,quiet){
-  if(!navigator.geolocation){toast('GPS indisponible');return}
-  $('btnLocate').classList.add('on');
-  navigator.geolocation.getCurrentPosition(p=>{
-    $('btnLocate').classList.remove('on');
-    myPos=L.latLng(p.coords.latitude,p.coords.longitude);
+/* ================= Position en direct ================= */
+let me=null,myPos=null,myAcc=999,firstFix=true,watchId=null;
+function startWatch(){
+  if(!navigator.geolocation||watchId!==null)return;
+  watchId=navigator.geolocation.watchPosition(p=>{
+    myPos=L.latLng(p.coords.latitude,p.coords.longitude);myAcc=p.coords.accuracy;
     if(me)me.setLatLng(myPos);
-    else me=L.marker(myPos,{interactive:false,icon:L.divIcon({className:'',iconSize:[18,18],html:'<div class="me"></div>'})}).addTo(map);
-    map.setView(myPos,Math.max(map.getZoom(),17));
-    cb&&cb(myPos);
+    else me=L.marker(myPos,{interactive:false,zIndexOffset:1000,icon:L.divIcon({className:'',iconSize:[18,18],html:'<div class="me"></div>'})}).addTo(map);
+    if(firstFix&&!items.length){map.setView(myPos,17)}
+    firstFix=false;
+    onPosition&&onPosition(p);
   },e=>{
-    $('btnLocate').classList.remove('on');
-    if(!quiet)toast(e.code===1?'Autorise la localisation dans les réglages du site':'Position introuvable, réessaie dehors');
-  },{enableHighAccuracy:true,timeout:15000,maximumAge:10000});
+    watchId=null;
+    if(e.code===1)toast('Autorise la localisation pour ce site dans Chrome');
+  },{enableHighAccuracy:true,maximumAge:3000,timeout:20000});
 }
-$('btnLocate').onclick=()=>locate();
+let onPosition=null;
+function withPos(cb){
+  if(myPos){cb(myPos);return}
+  toast('Recherche de ta position…');startWatch();
+  const t=setInterval(()=>{if(myPos){clearInterval(t);cb(myPos)}},400);
+  setTimeout(()=>clearInterval(t),20000);
+}
+$('btnLocate').onclick=()=>withPos(p=>map.setView(p,Math.max(map.getZoom(),17)));
 
-/* ---------- Panneau bas : écrans ---------- */
-let mode=null; // null | 'rue' | 'point'
+/* ================= Panneau ================= */
+let mode=null;
 const dock=$('dock');
+function reset(){mode=null;banner(null);draftLayer.clearLayers();onPosition=null}
 
 function showHome(){
-  mode=null;banner(null);draftLayer.clearLayers();
+  reset();
   dock.innerHTML=`<div class="grab"></div>
     <div class="modes">
-      <button class="mode big" id="mRue">${I.street}Tracer une rue</button>
-      <button class="mode" id="mPt">${I.pin}Point de dépôt</button>
+      <button class="mode big" id="mWalk">${I.walk}<span>En marchant<small>Tracé vert en direct</small></span></button>
+      <button class="mode" id="mWhole">${I.whole}<span>Rue entière<small>1 appui sur la rue</small></span></button>
+      <button class="mode" id="mAB">${I.street}<span>De A à B<small>Une portion</small></span></button>
+      <button class="mode" id="mPt">${I.pin}<span>Point<small>Commerce, boîte…</small></span></button>
     </div>
     <div class="links">
       <button class="link" id="lList">Historique (${items.length})</button>
       <button class="link" id="lData">Sauvegarde</button>
     </div>`;
-  $('mRue').onclick=startRue;$('mPt').onclick=startPoint;
+  $('mWhole').onclick=startWhole;$('mAB').onclick=startAB;$('mWalk').onclick=startWalk;$('mPt').onclick=startPoint;
   $('lList').onclick=()=>showList('all');$('lData').onclick=showData;
 }
 
-/* ---------- Mode rue : A → B qui suit les rues ---------- */
-let wps=[], route=null, reqId=0;
-function startRue(){
-  mode='rue';wps=[];route=null;draftLayer.clearLayers();
-  banner('Touche le début de la rue (A)');
-  dock.innerHTML=`<div class="grab"></div>
-    <h2>Tracer une rue</h2>
-    <p class="sub" id="rueInfo">Touche A puis B sur la carte. Le tracé suit les rues. Ajoute des points pour prolonger.</p>
-    <div class="btns">
-      <button class="btn" id="rGps">Partir de ma position</button>
-    </div>
-    <div class="btns">
-      <button class="btn" id="rCancel">Annuler</button>
-      <button class="btn" id="rUndo" disabled>Retirer le dernier</button>
-      <button class="btn primary" id="rOk" disabled>Valider</button>
-    </div>`;
-  $('rCancel').onclick=showHome;
-  $('rUndo').onclick=()=>{wps.pop();refreshRue()};
-  $('rOk').onclick=()=>showForm({type:'rue',coords:route.coords,wps:wps.map(p=>[p.lat,p.lng]),dist:route.dist,name:route.name});
-  $('rGps').onclick=()=>locate(p=>{wps.push(p);refreshRue()});
+/* ---------- Rue entière (Overpass) ---------- */
+let sel=[];
+function startWhole(){
+  reset();mode='whole';sel=[];
+  if(map.getZoom()<15)toast('Zoome sur ton quartier pour viser la rue');
+  banner('Touche une rue pour la sélectionner');
+  renderWhole();
 }
-async function refreshRue(){
+function renderWhole(){
+  draftLayer.clearLayers();
+  sel.forEach(s=>{
+    L.polyline(s.coords,{color:'#fff',weight:13,opacity:.9}).addTo(draftLayer);
+    L.polyline(s.coords,{color:'#2563eb',weight:8}).addTo(draftLayer);
+  });
+  const tot=sel.reduce((a,s)=>a+s.dist,0);
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Rue entière</h2>
+    <p class="sub">${sel.length?`${sel.length} rue${sel.length>1?'s':''} · ${fmtKm(tot)}. Touche d’autres rues pour les ajouter.`:'Touche une rue sur la carte : elle s’allume en entier.'}</p>
+    <div class="selList">${sel.map((s,i)=>`<span class="tag">${esc(s.name)}<button data-i="${i}" aria-label="Retirer">×</button></span>`).join('')}</div>
+    <div class="btns"><button class="btn" id="wCancel">Annuler</button><button class="btn primary" id="wOk" ${sel.length?'':'disabled'}>Valider</button></div>`;
+  dock.querySelector('.selList').onclick=e=>{const b=e.target.closest('button');if(!b)return;sel.splice(+b.dataset.i,1);renderWhole()};
+  $('wCancel').onclick=showHome;
+  $('wOk').onclick=()=>showForm({type:'rue',batch:sel.map(s=>({coords:s.coords,dist:s.dist,name:s.name}))});
+}
+async function overpass(q){
+  const urls=['https://overpass-api.de/api/interpreter','https://overpass.kumi.systems/api/interpreter'];
+  for(const u of urls){
+    try{const r=await fetch(u,{method:'POST',body:'data='+encodeURIComponent(q)});if(r.ok)return await r.json()}catch(e){}
+  }
+  throw new Error('overpass');
+}
+let busy=false;
+async function pickStreet(ll){
+  if(busy)return;busy=true;
+  banner('<span class="spin"></span>Recherche de la rue…');
+  try{
+    const near=await overpass(`[out:json][timeout:20];way(around:30,${ll.lat},${ll.lng})[highway][name][highway!~"^(footway|path|cycleway|steps|corridor|proposed|construction)$"];out tags geom;`);
+    if(!near.elements.length){toast('Pas de rue nommée ici, vise plus près');return}
+    const pt=map.latLngToLayerPoint(ll);
+    let best=null,bd=1e9;
+    near.elements.forEach(w=>{
+      const ps=w.geometry.map(g=>map.latLngToLayerPoint([g.lat,g.lon]));
+      for(let i=1;i<ps.length;i++){const d=L.LineUtil.pointToSegmentDistance(pt,ps[i-1],ps[i]);if(d<bd){bd=d;best=w}}
+    });
+    const name=best.tags.name;
+    if(sel.some(s=>s.name===name)){sel=sel.filter(s=>s.name!==name);renderWhole();banner('Rue retirée. Touche une autre rue');return}
+    const safe=name.replace(/\\/g,'\\\\').replace(/"/g,'\\"');
+    const all=await overpass(`[out:json][timeout:25];way(around:2500,${ll.lat},${ll.lng})[highway]["name"="${safe}"];out geom;`);
+    // ne garder que les tronçons reliés à celui touché
+    const ways=all.elements.filter(w=>w.geometry&&w.geometry.length>1);
+    const key=g=>g.lat.toFixed(6)+','+g.lon.toFixed(6);
+    const keep=new Set([best.id]);let grow=true;
+    const nodesOf=w=>new Set(w.geometry.map(key));
+    const sets=new Map(ways.map(w=>[w.id,nodesOf(w)]));
+    if(!sets.has(best.id))sets.set(best.id,nodesOf(best)),ways.push(best);
+    while(grow){
+      grow=false;
+      ways.forEach(w=>{
+        if(keep.has(w.id))return;
+        const s=sets.get(w.id);
+        for(const k of keep){const o=sets.get(k);for(const n of s){if(o.has(n)){keep.add(w.id);grow=true;break}}if(keep.has(w.id))break}
+      });
+    }
+    const coords=ways.filter(w=>keep.has(w.id)).map(w=>w.geometry.map(g=>[g.lat,g.lon]));
+    sel.push({name,coords,dist:lenOf(coords)});
+    renderWhole();
+    banner(`${esc(name)} ajoutée · touche une autre rue ou Valider`);
+  }catch(e){
+    toast('Service des rues indisponible, réessaie ou utilise « De A à B »');banner('Touche une rue pour la sélectionner');
+  }finally{busy=false}
+}
+
+/* ---------- De A à B (OSRM piéton) ---------- */
+let wps=[],route=null,reqId=0;
+function startAB(){
+  reset();mode='ab';wps=[];route=null;
+  banner('Touche le début (A)');
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>De A à B</h2>
+    <p class="sub" id="rueInfo">Touche A puis B. Le tracé suit les rues. Touche encore pour prolonger.</p>
+    <div class="btns"><button class="btn" id="rGps">A = ma position</button><button class="btn" id="rUndo" disabled>Retirer le dernier</button></div>
+    <div class="btns"><button class="btn" id="rCancel">Annuler</button><button class="btn primary" id="rOk" disabled>Valider</button></div>`;
+  $('rCancel').onclick=showHome;
+  $('rUndo').onclick=()=>{wps.pop();refreshAB()};
+  $('rOk').onclick=()=>showForm({type:'rue',coords:route.coords,dist:route.dist,name:route.name});
+  $('rGps').onclick=()=>withPos(p=>{wps.unshift(p);refreshAB()});
+}
+async function refreshAB(){
   draftLayer.clearLayers();route=null;
-  wps.forEach((p,i)=>L.marker(p,{interactive:false,icon:L.divIcon({className:'',iconSize:[18,18],html:`<div class="wp">${i===0?'A':i===wps.length-1?'B':''}</div>`})}).addTo(draftLayer));
+  wps.forEach((p,i)=>L.marker(p,{interactive:false,icon:L.divIcon({className:'',iconSize:[20,20],html:`<div class="wp">${i===0?'A':i===wps.length-1?'B':''}</div>`})}).addTo(draftLayer));
   $('rUndo').disabled=!wps.length;$('rOk').disabled=true;
-  if(wps.length===0){banner('Touche le début de la rue (A)');$('rueInfo').textContent='Touche A puis B sur la carte. Le tracé suit les rues.';return}
-  if(wps.length===1){banner('Touche la fin de la rue (B)');$('rueInfo').textContent='Point A placé.';return}
-  banner('Calcul du tracé…');
-  const id=++reqId;
-  const r=await getRoute(wps);
-  if(id!==reqId||mode!=='rue')return;
+  if(!wps.length){banner('Touche le début (A)');$('rueInfo').textContent='Touche A puis B. Le tracé suit les rues.';return}
+  if(wps.length===1){banner('Touche la fin (B)');$('rueInfo').textContent='A placé.';return}
+  banner('<span class="spin"></span>Calcul du tracé…');
+  const id=++reqId,r=await getRoute(wps);
+  if(id!==reqId||mode!=='ab')return;
   route=r;
-  L.polyline(r.coords,{color:'#fff',weight:12,opacity:.9}).addTo(draftLayer);
+  L.polyline(r.coords,{color:'#fff',weight:13,opacity:.9}).addTo(draftLayer);
   L.polyline(r.coords,{color:'#2563eb',weight:8}).addTo(draftLayer);
-  $('rueInfo').innerHTML=`<b>${esc(r.name||'Rue sans nom')}</b> · ${fmtKm(r.dist)}${r.fallback?' · tracé en ligne droite (réseau indisponible)':''}`;
-  $('rOk').disabled=false;
-  banner('Touche encore pour prolonger, ou Valider');
+  $('rueInfo').innerHTML=`<b>${esc(r.name||'Rue sans nom')}</b> · ${fmtKm(r.dist)}${r.fallback?' · ligne droite (service indisponible)':''}`;
+  $('rOk').disabled=false;banner('Touche pour prolonger, ou Valider');
 }
 async function getRoute(pts){
   const q=pts.map(p=>p.lng.toFixed(6)+','+p.lat.toFixed(6)).join(';');
   try{
-    const res=await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${q}?overview=full&geometries=geojson&steps=true`);
-    const j=await res.json();
+    const j=await (await fetch(`https://routing.openstreetmap.de/routed-foot/route/v1/driving/${q}?overview=full&geometries=geojson&steps=true`)).json();
     if(j.code!=='Ok')throw 0;
-    const rt=j.routes[0];
-    const names=[];
+    const rt=j.routes[0],names=[];
     rt.legs.forEach(l=>l.steps.forEach(s=>{if(s.name&&s.distance>15&&!names.includes(s.name))names.push(s.name)}));
     return {coords:rt.geometry.coordinates.map(c=>[c[1],c[0]]),dist:rt.distance,name:names.slice(0,3).join(' → ')};
   }catch(e){
@@ -261,65 +349,159 @@ async function getRoute(pts){
   }
 }
 
-/* ---------- Mode point ---------- */
+/* ---------- En marchant (trace GPS) ---------- */
+let track=[],trackLine=null,trackHalo=null,t0=0,tick=null,wake=null;
+async function keepAwake(on){
+  try{
+    if(on&&'wakeLock' in navigator){wake=await navigator.wakeLock.request('screen')}
+    else if(!on&&wake){await wake.release();wake=null}
+  }catch(e){}
+}
+document.addEventListener('visibilitychange',()=>{if(mode==='walk'&&document.visibilityState==='visible')keepAwake(true)});
+function startWalk(){
+  reset();mode='walk-ready';
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>En marchant</h2>
+    <p class="sub">Lance le suivi puis distribue normalement : un tracé vert se dessine derrière ton point bleu, dans toutes les rues que tu fais. Garde l’appli ouverte, l’écran reste allumé.</p>
+    <div class="btns"><button class="btn" id="kCancel">Annuler</button><button class="btn rec" id="kGo">Démarrer</button></div>`;
+  $('kCancel').onclick=showHome;
+  $('kGo').onclick=()=>withPos(beginWalk);
+}
+const TKEY='flyers-tournee-en-cours';
+function saveTrack(){try{localStorage.setItem(TKEY,JSON.stringify({t0,pts:track.map(p=>[p.lat,p.lng])}))}catch(e){}}
+function clearTrack(){try{localStorage.removeItem(TKEY)}catch(e){}}
+function beginWalk(resume){
+  mode='walk';keepAwake(true);
+  track=resume?resume.pts.map(p=>L.latLng(p)):[];t0=resume?resume.t0:Date.now();
+  trackHalo=L.polyline(track,{color:'#fff',weight:13,opacity:.9}).addTo(draftLayer);
+  trackLine=L.polyline(track,{color:'#14a05a',weight:8,opacity:1}).addTo(draftLayer);
+  if(me)me.setZIndexOffset(1000);
+  if(myPos&&myAcc<=35)addTrack(myPos);
+  map.setView(myPos,18);
+  onPosition=p=>{if(p.coords.accuracy<=35)addTrack(L.latLng(p.coords.latitude,p.coords.longitude));map.panTo(myPos,{animate:true})};
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Suivi en cours</h2>
+    <p class="sub">Le tracé vert suit tes pas. Termine quand la tournée est finie.</p>
+    <div class="btns"><button class="btn" id="kAbort">Abandonner</button><button class="btn primary" id="kStop">Terminer</button></div>`;
+  tick=setInterval(walkBanner,1000);walkBanner();
+  let arm=false;
+  $('kAbort').onclick=()=>{if(!arm){arm=true;$('kAbort').textContent='Sûr ?';setTimeout(()=>{arm=false;const b=$('kAbort');if(b)b.textContent='Abandonner'},3000);return}stopWalk();showHome()};
+  $('kStop').onclick=()=>{
+    const coords=track.map(p=>[p.lat,p.lng]);
+    stopWalk();
+    if(coords.length<2){toast('Parcours trop court, rien à enregistrer');showHome();return}
+    draftLayer.clearLayers();
+    L.polyline(coords,{color:'#14a05a',weight:8}).addTo(draftLayer);
+    showForm({type:'rue',coords,dist:lenOf(coords),name:'Tournée du '+fmtD(Date.now()),walk:true});
+  };
+}
+function addTrack(p){
+  const last=track[track.length-1];
+  if(last&&last.distanceTo(p)<6)return;
+  track.push(p);trackLine.addLatLng(p);trackHalo.addLatLng(p);saveTrack();
+}
+function walkBanner(){
+  const s=Math.floor((Date.now()-t0)/1000);
+  banner(`${Math.floor(s/60)}:${String(s%60).padStart(2,'0')} · ${fmtKm(track.length>1?lenOf(track.map(p=>[p.lat,p.lng])):0)}${myAcc>35?' · GPS faible':''}`,'rec');
+}
+function stopWalk(){clearInterval(tick);clearTrack();onPosition=null;keepAwake(false);mode=null;banner(null)}
+
+/* ---------- Point ---------- */
 function startPoint(){
-  mode='point';banner('Touche l’emplacement sur la carte');
+  reset();mode='point';banner('Touche l’emplacement');
   dock.innerHTML=`<div class="grab"></div>
     <h2>Point de dépôt</h2>
-    <p class="sub">Commerce, mairie, panneau… Touche la carte ou utilise ta position.</p>
+    <p class="sub">Commerce, mairie, panneau… Touche la carte ou prends ta position.</p>
     <div class="btns"><button class="btn" id="pCancel">Annuler</button><button class="btn primary" id="pGps">Ma position</button></div>`;
   $('pCancel').onclick=showHome;
-  $('pGps').onclick=()=>locate(p=>placePoint(p));
+  $('pGps').onclick=()=>withPos(placePoint);
 }
 async function placePoint(p){
-  draftLayer.clearLayers();
+  mode='form';draftLayer.clearLayers();
   L.marker(p,{interactive:false,icon:L.divIcon({className:'',iconSize:[28,28],iconAnchor:[14,30],html:'<div class="pin" style="background:#2563eb"></div>'})}).addTo(draftLayer);
-  banner(null);
   showForm({type:'point',lat:p.lat,lng:p.lng,name:''});
   try{
-    const r=await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${p.lat}&lon=${p.lng}`,{headers:{'Accept-Language':'fr'}});
-    const j=await r.json();const a=j.address||{};
+    const j=await (await fetch(`https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=18&lat=${p.lat}&lon=${p.lng}&accept-language=fr`)).json();
+    const a=j.address||{};
     const n=[j.name&&j.name!==a.road?j.name:'',[a.house_number,a.road].filter(Boolean).join(' ')].filter(Boolean).join(', ');
     const f=$('fName');if(f&&!f.value)f.value=n;
   }catch(e){}
 }
 
 map.on('click',e=>{
-  if(mode==='rue'){wps.push(e.latlng);refreshRue()}
-  else if(mode==='point'){mode='pointForm';placePoint(e.latlng)}
+  if(mode==='whole')pickStreet(e.latlng);
+  else if(mode==='ab'){wps.push(e.latlng);refreshAB()}
+  else if(mode==='point')placePoint(e.latlng);
 });
+
+/* ---------- Recherche d'adresse ---------- */
+$('btnSearch').onclick=()=>{
+  if(mode==='walk'){toast('Termine d’abord l’enregistrement');return}
+  reset();
+  dock.innerHTML=`<div class="grab"></div>
+    <h2>Aller à…</h2>
+    <form class="search" id="sForm"><input id="sQ" type="search" placeholder="Ville, rue, adresse" autocomplete="off"></form>
+    <div class="list" id="sRes"></div>
+    <div class="btns"><button class="btn" id="sBack">Retour</button></div>`;
+  $('sBack').onclick=showHome;
+  setTimeout(()=>$('sQ').focus(),50);
+  $('sForm').onsubmit=async e=>{
+    e.preventDefault();const q=$('sQ').value.trim();if(!q)return;
+    $('sRes').innerHTML='<p class="empty">Recherche…</p>';
+    try{
+      const c=map.getCenter();
+      const r=await (await fetch(`https://nominatim.openstreetmap.org/search?format=jsonv2&limit=6&countrycodes=fr&accept-language=fr&q=${encodeURIComponent(q)}&viewbox=${c.lng-.3},${c.lat+.3},${c.lng+.3},${c.lat-.3}`)).json();
+      $('sRes').innerHTML=r.length?r.map((x,i)=>`<div class="item" data-i="${i}"><div class="t"><b>${esc(x.name||x.display_name.split(',')[0])}</b><small>${esc(x.display_name)}</small></div></div>`).join(''):'<p class="empty">Aucun résultat.</p>';
+      $('sRes').onclick=ev=>{const it=ev.target.closest('.item');if(!it)return;const x=r[+it.dataset.i];map.setView([+x.lat,+x.lon],17);showHome()};
+    }catch(err){$('sRes').innerHTML='<p class="empty">Recherche indisponible, vérifie ta connexion.</p>'}
+  };
+};
 
 /* ---------- Formulaire ---------- */
 function showForm(it,existing){
   mode=existing?null:'form';banner(null);
-  const st=it.status||'ok';
+  const isRue=it.type==='rue',batch=it.batch;
+  const st=it.status||'ok',side=it.side||'both';
+  const dist=batch?batch.reduce((a,b)=>a+b.dist,0):it.dist;
   dock.innerHTML=`<div class="grab"></div>
-    <h2>${existing?'Modifier':'Enregistrer'} ${it.type==='rue'?'la rue':'le point'}</h2>
-    ${it.type==='rue'?`<p class="sub">${fmtKm(it.dist||0)}${existing?' · '+fmtD(it.date):''}</p>`:existing?`<p class="sub">${fmtD(it.date)}</p>`:''}
-    <div class="field"><label for="fName">${it.type==='rue'?'Rue':'Lieu'}</label><input id="fName" value="${esc(it.name)}" placeholder="${it.type==='rue'?'Rue de la République':'Boulangerie Dupont'}"></div>
+    <h2>${existing?'Modifier':'Enregistrer'} ${batch&&batch.length>1?batch.length+' rues':isRue?'la rue':'le point'}</h2>
+    <p class="sub">${isRue?fmtKm(dist||0):''}${existing?(isRue?' · ':'')+fmtD(it.date):''}</p>
+    ${batch&&batch.length>1?'':`<div class="field"><label for="fName">${isRue?'Rue':'Lieu'}</label><input id="fName" value="${esc(batch?batch[0].name:it.name)}" placeholder="${isRue?'Rue de la République':'Boulangerie Dupont'}"></div>`}
     <div class="field"><label>Statut</label><div class="chips" id="fSt">
       ${Object.entries(ST).map(([k,v])=>`<button class="chip${k===st?' sel':''}" data-k="${k}"><i style="background:${v.c}"></i>${v.l}</button>`).join('')}
     </div></div>
-    <div class="field"><label for="fQty">Flyers</label><div class="stepper">
-      <button id="qm">−10</button><input id="fQty" type="number" inputmode="numeric" min="0" value="${it.qty??(it.type==='rue'?0:10)}"><button id="qp">+10</button>
+    ${isRue?`<div class="field"><label>Côté</label><div class="chips" id="fSide">
+      ${Object.entries(SIDES).map(([k,v])=>`<button class="chip${k===side?' sel':''}" data-k="${k}">${k==='both'?'Les deux':v}</button>`).join('')}
+    </div></div>`:''}
+    <div class="field"><label for="fQty">Flyers${batch&&batch.length>1?' (par rue)':''}</label><div class="stepper">
+      <button id="qm">−10</button><input id="fQty" type="number" inputmode="numeric" min="0" value="${it.qty??(isRue?0:10)}"><button id="qp">+10</button>
     </div></div>
-    <div class="field"><label for="fNote">Note</label><textarea id="fNote" placeholder="Numéros pairs seulement, digicode…">${esc(it.note)}</textarea></div>
+    <div class="field"><label for="fNote">Note</label><textarea id="fNote" placeholder="Digicode, accord du gérant…">${esc(it.note)}</textarea></div>
     <div class="btns">
       ${existing?'<button class="btn danger" id="fDel">Supprimer</button>':''}
       <button class="btn" id="fCancel">${existing?'Fermer':'Annuler'}</button>
       <button class="btn primary" id="fSave">Enregistrer</button>
     </div>`;
-  let status=st;
-  $('fSt').onclick=e=>{const b=e.target.closest('.chip');if(!b)return;status=b.dataset.k;[...$('fSt').children].forEach(c=>c.classList.toggle('sel',c===b))};
+  let status=st,sd=side;
+  const chips=(id,fn)=>{const el=$(id);if(!el)return;el.onclick=e=>{const b=e.target.closest('.chip');if(!b)return;fn(b.dataset.k);[...el.children].forEach(c=>c.classList.toggle('sel',c===b))}};
+  chips('fSt',k=>status=k);chips('fSide',k=>sd=k);
   const q=$('fQty');
   $('qm').onclick=()=>q.value=Math.max(0,(+q.value||0)-10);
   $('qp').onclick=()=>q.value=(+q.value||0)+10;
   $('fCancel').onclick=showHome;
   $('fSave').onclick=()=>{
-    const data={name:$('fName').value.trim(),qty:+q.value||0,status,note:$('fNote').value.trim()};
-    if(existing)Object.assign(existing,data,{updated:Date.now()});
-    else items.push({...it,...data,id:Date.now(),date:Date.now()});
-    save();draw();showHome();toast(existing?'Modifié':it.type==='rue'?'Rue enregistrée':'Point enregistré');
+    const base={qty:+q.value||0,status,note:$('fNote').value.trim()};
+    if(isRue)base.side=sd;
+    const nm=$('fName')?$('fName').value.trim():null;
+    if(existing){Object.assign(existing,base,{name:nm,updated:Date.now()})}
+    else if(batch){
+      batch.forEach((b,i)=>items.push({type:'rue',coords:b.coords,dist:b.dist,name:batch.length>1?b.name:nm,...base,id:Date.now()+i,date:Date.now()}));
+    }else{
+      const {batch:_,...rest}=it;
+      items.push({...rest,...base,name:nm,id:Date.now(),date:Date.now()});
+    }
+    save();draw();showHome();
+    toast(existing?'Modifié':batch&&batch.length>1?batch.length+' rues enregistrées':isRue?'Rue enregistrée':'Point enregistré');
   };
   if(existing){
     let arm=false;
@@ -330,15 +512,15 @@ function showForm(it,existing){
   }
 }
 function showEdit(it){
-  if(it.type==='rue')map.fitBounds(L.latLngBounds(it.coords).pad(.3),{paddingBottomRight:[0,260]});
+  if(it.type==='rue')map.fitBounds(L.latLngBounds(flat(it.coords)).pad(.3),{paddingBottomRight:[0,300]});
   else map.panTo([it.lat,it.lng]);
   showForm(it,it);
 }
 
 /* ---------- Historique ---------- */
 function showList(filter){
-  mode=null;banner(null);draftLayer.clearLayers();
-  const list=[...items].filter(i=>filter==='all'||i.type===filter||i.status===filter).sort((a,b)=>b.date-a.date);
+  reset();
+  const list=items.filter(i=>filter==='all'||i.type===filter||i.status===filter).sort((a,b)=>b.date-a.date);
   const tabs=[['all','Tout'],['rue','Rues'],['point','Points'],['redo','À refaire']];
   dock.innerHTML=`<div class="grab"></div>
     <h2>Historique</h2>
@@ -347,7 +529,7 @@ function showList(filter){
       <div class="item" data-id="${i.id}">
         <div class="ic" style="background:${ST[i.status].c}">${i.type==='rue'?I.street:I.pin}</div>
         <div class="t"><b>${esc(i.name)||(i.type==='rue'?'Rue sans nom':'Point sans nom')}</b>
-        <small>${fmtD(i.date)} · ${ST[i.status].l}${i.type==='rue'?' · '+fmtKm(i.dist||0):''}${i.qty?' · '+i.qty+' flyers':''}</small></div>
+        <small>${fmtD(i.date)} · ${ST[i.status].l}${i.type==='rue'?' · '+fmtKm(i.dist||0)+(i.side&&i.side!=='both'?' · '+SIDES[i.side]:''):''}${i.qty?' · '+i.qty+' flyers':''}</small></div>
       </div>`).join(''):'<p class="empty">Rien ici pour l’instant.</p>'}</div>
     <div class="btns"><button class="btn" id="lBack">Retour à la carte</button></div>`;
   dock.querySelector('.tabs').onclick=e=>{const b=e.target.closest('.tab');if(b)showList(b.dataset.k)};
@@ -357,10 +539,10 @@ function showList(filter){
 
 /* ---------- Sauvegarde ---------- */
 function showData(){
-  mode=null;
+  reset();
   dock.innerHTML=`<div class="grab"></div>
     <h2>Sauvegarde</h2>
-    <p class="sub">Les données restent dans ce navigateur. Exporte un fichier de temps en temps pour ne rien perdre, ou pour passer sur un autre téléphone.</p>
+    <p class="sub">Les données restent dans ce navigateur. Exporte un fichier de temps en temps pour ne rien perdre ou pour changer de téléphone.</p>
     <div class="btns"><button class="btn" id="dExp">Exporter</button><button class="btn" id="dImp">Importer</button></div>
     <div class="btns"><button class="btn primary" id="dBack">Retour</button></div>
     <input type="file" id="dFile" accept="application/json,.json" hidden>`;
@@ -372,18 +554,27 @@ function showData(){
   };
   $('dImp').onclick=()=>$('dFile').click();
   $('dFile').onchange=e=>{const f=e.target.files[0];if(!f)return;f.text().then(t=>{
-    try{const arr=JSON.parse(t);const ids=new Set(items.map(i=>i.id));let n=0;
+    try{const arr=JSON.parse(t),ids=new Set(items.map(i=>i.id));let n=0;
       arr.forEach(i=>{if(!ids.has(i.id)&&(i.type==='rue'||i.type==='point')){items.push(i);n++}});
       save();draw();toast(n+' éléments importés');showHome();}
     catch(err){toast('Fichier illisible')}
   })};
 }
 
-/* ---------- Démarrage ---------- */
+/* ================= Démarrage ================= */
 draw();showHome();
-const all=items.flatMap(i=>i.type==='rue'?i.coords:[[i.lat,i.lng]]);
-if(all.length){map.fitBounds(L.latLngBounds(all).pad(.2));locate(null,true)}
-else locate(null,true);
+try{
+  const rs=JSON.parse(localStorage.getItem(TKEY)||'null');
+  if(rs&&rs.pts&&rs.pts.length){
+    dock.innerHTML=`<div class="grab"></div><h2>Tournée interrompue</h2>
+      <p class="sub">${fmtKm(lenOf(rs.pts.length>1?rs.pts:[rs.pts[0],rs.pts[0]]))} déjà tracés. Tu veux reprendre le suivi ?</p>
+      <div class="btns"><button class="btn" id="rsNo">Abandonner</button><button class="btn primary" id="rsYes">Reprendre</button></div>`;
+    $('rsNo').onclick=()=>{clearTrack();showHome()};
+    $('rsYes').onclick=()=>{startWatch();withPos(()=>beginWalk(rs))};
+  }
+}catch(e){}
+if(items.length)map.fitBounds(L.latLngBounds(items.flatMap(i=>i.type==='rue'?flat(i.coords):[[i.lat,i.lng]])).pad(.2));
+startWatch();
 </script>
 </body>
 </html>
